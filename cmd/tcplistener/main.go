@@ -1,45 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"io"
+	"ja_httpserver/internal/request"
 	"log"
 	"net"
+	"os"
 )
-
-func getLinesChannel(f io.ReadCloser) <-chan string {
-	out := make(chan string, 1)
-	go func() {
-		defer f.Close()
-		defer close(out)
-
-		str := ""
-		for {
-			data := make([]byte, 8)
-			n, err := f.Read(data)
-			if err != nil {
-				break
-			}
-
-			data = data[:n]
-
-			if i := bytes.IndexByte(data, '\n'); i != -1 {
-				str += string(data[:i])
-				data = data[i+1:]
-				out <- str
-				str = ""
-			}
-
-			str += string(data)
-		}
-		if len(str) != 0 {
-			out <- str
-		}
-	}()
-
-	return out
-}
 
 func main() {
 	listener, err := net.Listen("tcp", ":42069")
@@ -52,10 +19,16 @@ func main() {
 		if err != nil {
 			log.Fatal("error", "error", err)
 		}
-
-		for line := range getLinesChannel(conn) {
-			fmt.Printf("read: %s \n", line)
+		r, err := request.RequestFromReader(conn)
+		if err != nil {
+			log.Fatal("error", "error", err)
+			os.Exit(1)
 		}
+		fmt.Printf("Request :\n")
+		fmt.Printf("- Method: %s\n", r.RequestLine.Method)
+		fmt.Printf("- Target: %s\n", r.RequestLine.RequestTarget)
+		fmt.Printf("- Version: %s\n", r.RequestLine.HttpVersion)
+
 	}
 
 	// f, err := os.Open("messages.txt")

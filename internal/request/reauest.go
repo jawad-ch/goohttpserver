@@ -27,10 +27,6 @@ type RequestLine struct {
 	Method        string
 }
 
-func (r *RequestLine) ValidateHTTP() bool {
-	return r.HttpVersion == "HTTP/1.1"
-}
-
 func (r *Request) parse(data []byte) (int, error) {
 	read := 0
 outer:
