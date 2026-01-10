@@ -4,8 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"ja_httpserver/headers"
-	"log/slog"
+	"ja_httpserver/internal/headers"
 	"strconv"
 )
 
@@ -163,7 +162,6 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	buffLen := 0
 	for !request.done() {
 		n, err := reader.Read(buff[buffLen:])
-		slog.Debug("reading request", "currentBufferLength", buffLen, "state", request.state)
 		if err != nil {
 			return nil, err
 		}

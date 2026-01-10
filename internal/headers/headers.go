@@ -32,6 +32,13 @@ func (h *Headers) Set(name, value string) {
 	}
 }
 
+func (h *Headers) Replace(name, value string) {
+	name = strings.ToLower(name)
+	if _, ok := h.headers[name]; ok {
+		h.headers[name] = value
+	}
+}
+
 func (h *Headers) ForEach(cb func(n, v string)) {
 	for k, v := range h.headers {
 		cb(k, v)
