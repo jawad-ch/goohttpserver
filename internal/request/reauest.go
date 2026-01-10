@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"ja_httpserver/headers"
+	"log/slog"
+	"strconv"
 )
 
 type parserState string
@@ -13,13 +15,14 @@ const (
 	StateInit    parserState = "init"
 	StateDone    parserState = "done"
 	StateHeaders parserState = "headers"
+	StateBody    parserState = "body"
 	StateError   parserState = "error"
 )
 
 type Request struct {
 	RequestLine RequestLine
 	Headers     *headers.Headers
-	Body        []byte
+	Body        string
 	state       parserState
 }
 
@@ -29,11 +32,30 @@ type RequestLine struct {
 	Method        string
 }
 
+func getInt(headers *headers.Headers, name string, defaultValue int) int {
+	valueStr, ok := headers.Get(name)
+	if !ok {
+		return defaultValue
+	}
+	valueInt, err := strconv.Atoi(valueStr)
+	if err != nil {
+		return defaultValue
+	}
+	return valueInt
+}
+
+func (r *Request) hasBody() bool {
+	return getInt(r.Headers, "Content-Length", 0) > 0
+}
+
 func (r *Request) parse(data []byte) (int, error) {
 	read := 0
 outer:
 	for {
 		currentData := data[read:]
+		if len(currentData) == 0 {
+			break outer
+		}
 		switch r.state {
 		case StateError:
 			return 0, ERROR_REQUEST_IN_ERROR_STATE
@@ -52,6 +74,7 @@ outer:
 		case StateHeaders:
 			n, done, err := r.Headers.Parse(currentData)
 			if err != nil {
+				r.state = StateError
 				return 0, err
 			}
 			if n == 0 {
@@ -59,9 +82,26 @@ outer:
 			}
 			read += n
 			if done {
+				if r.hasBody() {
+					r.state = StateBody
+				} else {
+					r.state = StateDone
+				}
+			}
+		case StateBody:
+			lenght := getInt(r.Headers, "Content-Length", 0)
+			if lenght == 0 {
+				// r.state = StateDone
+				// break outer
+				panic("Content-Length is 0")
+			}
+			remaining := min(lenght-len(r.Body), len(currentData))
+
+			r.Body += string(currentData[:remaining])
+			read += remaining
+			if len(r.Body) == lenght {
 				r.state = StateDone
 			}
-
 		case StateDone:
 			break outer
 			// default:
@@ -80,6 +120,7 @@ func newRequest() *Request {
 	return &Request{
 		state:   StateInit,
 		Headers: headers.NewHeaders(),
+		Body:    "",
 	}
 }
 
@@ -122,6 +163,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	buffLen := 0
 	for !request.done() {
 		n, err := reader.Read(buff[buffLen:])
+		slog.Debug("reading request", "currentBufferLength", buffLen, "state", request.state)
 		if err != nil {
 			return nil, err
 		}

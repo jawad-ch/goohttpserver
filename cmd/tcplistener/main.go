@@ -24,11 +24,15 @@ func main() {
 			log.Fatal("error", "error", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Request :\n")
+		fmt.Printf("Request line :\n")
 		fmt.Printf("- Method: %s\n", r.RequestLine.Method)
 		fmt.Printf("- Target: %s\n", r.RequestLine.RequestTarget)
 		fmt.Printf("- Version: %s\n", r.RequestLine.HttpVersion)
-
+		fmt.Printf("Headers :\n")
+		r.Headers.ForEach(func(n, v string) {
+			fmt.Printf("- %s : %s\n", n, v)
+		})
+		fmt.Printf("Body :\n%s\n", r.Body)
 	}
 
 	// f, err := os.Open("messages.txt")
